@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>NEON ARENA 2.0</title>
+<title>NEON ARENA — Яндекс Игры</title>
+<script src="/sdk.js"></script>
 <style>
 *{box-sizing:border-box;user-select:none;-webkit-user-select:none;margin:0;padding:0}
 body,html{width:100%;height:100%;overflow:hidden;background:#050811;font-family:'Segoe UI',sans-serif;color:#fff;touch-action:none}
@@ -16,7 +17,8 @@ canvas{display:block;width:100%;height:100%}
 .hide{display:none!important}
 h1{font-size:34px;background:linear-gradient(90deg,#38bdf8,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
 p{color:#94a3b8;margin-bottom:16px;font-size:14px;line-height:1.4}
-.btn{background:linear-gradient(90deg,#0284c7,#6366f1);color:#fff;border:none;padding:15px 40px;font-size:18px;font-weight:bold;border-radius:14px;cursor:pointer;margin:6px}
+.btn{background:linear-gradient(90deg,#0284c7,#6366f1);color:#fff;border:none;padding:15px 36px;font-size:17px;font-weight:bold;border-radius:14px;cursor:pointer;margin:6px}
+.btn-ad{background:linear-gradient(90deg,#f59e0b,#ea580c);box-shadow:0 0 18px rgba(245,158,11,.4)}
 .skins{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;justify-content:center}
 .sk{background:#1e293b;border:2px solid #334155;padding:10px 14px;border-radius:12px;cursor:pointer;font-size:12px;min-width:75px}
 .sk.on{border-color:#4ade80;background:#0f172a}
@@ -35,7 +37,7 @@ p{color:#94a3b8;margin-bottom:16px;font-size:14px;line-height:1.4}
   </div>
 </div>
 <div id="mStart" class="ov">
-  <h1>NEON ARENA 2.0</h1>
+  <h1>NEON ARENA</h1>
   <p><b>ПК:</b> WASD / Стрелки или зажми мышь<br><b>Телефон / Планшет:</b> Веди пальцем<br><br>Монеты: <b id="totCn" style="color:#facc15">0</b> | Рекорд: <b id="best">0</b></p>
   <div class="skins" id="skBox"></div>
   <button class="btn" id="playBtn">В БОЙ!</button>
@@ -47,9 +49,18 @@ p{color:#94a3b8;margin-bottom:16px;font-size:14px;line-height:1.4}
 <div id="mOver" class="ov hide">
   <h1 style="background:linear-gradient(90deg,#f87171,#ef4444);-webkit-background-clip:text">ИГРА ОКОНЧЕНА</h1>
   <p>Собрано за бой: <b id="endCn" style="color:#facc15;font-size:18px">0</b> 🪙</p>
+  <button class="btn btn-ad" id="revBtn">📺 Возродиться (Реклама)</button>
   <button class="btn" id="menuBtn">В МЕНЮ</button>
 </div>
 <script>
+let ysdk=null;
+if(window.YaGames){
+  YaGames.init().then(_y=>{
+    ysdk=_y;
+    ysdk.features.LoadingAPI?.ready();
+  }).catch(()=>{});
+}
+
 const c=document.getElementById('c'),ctx=c.getContext('2d');
 let W,H;const res=()=>{W=c.width=innerWidth;H=c.height=innerHeight};onresize=res;res();
 document.oncontextmenu=e=>e.preventDefault();
@@ -91,7 +102,7 @@ function drawSkins(){
   });
 }
 
-let st='menu',p,bul,enm,gem,prt,rc=0,shk=0,keys={},joy={on:0,sx:0,sy:0,cx:0,cy:0,dx:0,dy:0};
+let st='menu',p,bul,enm,gem,prt,rc=0,shk=0,revUsed=0,keys={},joy={on:0,sx:0,sy:0,cx:0,cy:0,dx:0,dy:0};
 onkeydown=e=>keys[e.code]=1;onkeyup=e=>keys[e.code]=0;
 
 function startJoy(x,y){if(st==='play')joy={on:1,sx:x,sy:y,cx:x,cy:y,dx:0,dy:0}}
@@ -102,8 +113,8 @@ function moveJoy(x,y){
 }
 function endJoy(){joy.on=0;joy.dx=0;joy.dy=0}
 
-c.addEventListener('touchstart',e=>{e.preventDefault();startJoy(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
-c.addEventListener('touchmove',e=>{e.preventDefault();moveJoy(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+c.addEventListener('touchstart',e=>{e.preventDefault();startJoy(e.touches.clientX,e.touches.clientY)},{passive:false});
+c.addEventListener('touchmove',e=>{e.preventDefault();moveJoy(e.touches.clientX,e.touches.clientY)},{passive:false});
 c.addEventListener('touchend',endJoy);
 c.addEventListener('mousedown',e=>startJoy(e.clientX,e.clientY));
 window.addEventListener('mousemove',e=>moveJoy(e.clientX,e.clientY));
@@ -112,17 +123,35 @@ window.addEventListener('mouseup',endJoy);
 document.getElementById('playBtn').onclick=()=>{
   const isSpd=sv.cur==='#4ade80',isDmg=sv.cur==='#c084fc',isHp=sv.cur==='#facc15';
   p={x:W/2,y:H/2,r:16,hp:isHp?150:100,mhp:isHp?150:100,spd:isSpd?5.2:4.3,xp:0,mxp:40,lvl:1,fr:22,ft:0,bc:1,dmg:isDmg?35:25,orb:isHp?1:0,oa:0,mag:130};
-  bul=[];enm=[];gem=[];prt=[];rc=0;shk=0;st='play';endJoy();
+  bul=[];enm=[];gem=[];prt=[];rc=0;shk=0;revUsed=0;st='play';endJoy();
   document.getElementById('mStart').classList.add('hide');
   document.getElementById('ui').classList.remove('hide');
   hud();snd(440,'triangle',.2);
 };
 
+// Возрождение игрока за просмотр видеорекламы Яндекс Игр
+document.getElementById('revBtn').onclick=()=>{
+  const doRevive=()=>{
+    p.hp=p.mhp;enm=[];revUsed=1;st='play';
+    document.getElementById('mOver').classList.add('hide');
+    hud();snd(650,'sine',.3,.15);
+  };
+  if(ysdk){
+    ysdk.adv.showRewardedVideo({callbacks:{onRewarded:doRevive,onError:doRevive}});
+  }else{doRevive()}
+};
+
+// Переход в меню с показом обычной полноэкранной рекламы
 document.getElementById('menuBtn').onclick=()=>{
-  document.getElementById('mOver').classList.add('hide');
-  document.getElementById('ui').classList.add('hide');
-  document.getElementById('mStart').classList.remove('hide');
-  drawSkins();
+  const goMenu=()=>{
+    document.getElementById('mOver').classList.add('hide');
+    document.getElementById('ui').classList.add('hide');
+    document.getElementById('mStart').classList.remove('hide');
+    drawSkins();
+  };
+  if(ysdk){
+    ysdk.adv.showFullscreenAdv({callbacks:{onClose:goMenu,onError:goMenu}});
+  }else{goMenu()}
 };
 
 const upgs=[
@@ -179,7 +208,7 @@ function loop(){
 
   p.ft++;
   if(p.ft>=p.fr&&enm.length){
-    let nr=enm[0],md=1e9;
+    let nr=enm,md=1e9;
     enm.forEach(e=>{const d=Math.hypot(e.x-p.x,e.y-p.y);if(d<md){md=d;nr=e}});
     p.ft=0;snd(320,'square',.06,.025);
     const ba=Math.atan2(nr.y-p.y,nr.x-p.x);
@@ -225,6 +254,7 @@ function loop(){
     sv.cn+=rc;if(rc>sv.best)sv.best=rc;
     localStorage.setItem('naSave2',JSON.stringify(sv));
     document.getElementById('endCn').innerText=rc;
+    document.getElementById('revBtn').style.display=revUsed?'none':'inline-block';
     document.getElementById('mOver').classList.remove('hide');
   }
 
@@ -258,3 +288,4 @@ drawSkins();loop();
 </script>
 </body>
 </html>
+
